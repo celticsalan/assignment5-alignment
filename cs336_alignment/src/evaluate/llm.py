@@ -1,4 +1,4 @@
-from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams, RequestOutput
 from typing import Callable, List
 import json
 from typing import List
@@ -52,6 +52,7 @@ def evaluate_vllm(
         vllm_model: LLM,
         reward_fn: Callable[[str, str], dict[str, float]],
         prompts: List[str],
+        ground_truths: List[str],
         eval_sampling_params: SamplingParams
     ) -> None:
     """
@@ -59,17 +60,21 @@ def evaluate_vllm(
     compute evaluation metrics, and serialize results to disk.
     """
 
-    outputs = vllm_model.generate(prompts, eval_sampling_params)
+    outputs: List[RequestOutput] = vllm_model.generate(prompts, eval_sampling_params)
 
-    for prompt, output in zip(prompts, outputs):
-        rewards = reward_fn(prompt, output)
+    results = []
+    for output, ground_truth in zip(outputs, ground_truths):
+        prompt = output.prompt
+        output_text = output.outputs[0].text if output and output.outputs else ""
+        rewards = reward_fn(output_text, ground_truth)
         # Compute and log evaluation metrics here
         metrics = {
             "reward": rewards.get("reward", 0),
-            "length": len(output),
-            # Add more metrics as needed
+            "length": len(output_text),
         }
-        result = LLMEvaluationResult(prompt=prompt, generation=output, metrics=metrics)
-        # Save the result to disk
-        saver = EvaluationResultStore("results.txt")
-        saver.save([result])
+        result = LLMEvaluationResult(prompt=prompt, generation=output_text, metrics=metrics)
+        results.append(result)
+
+    # Save all results to disk
+    saver = EvaluationResultStore("outputs/results.txt")
+    saver.save(results)
