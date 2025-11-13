@@ -1017,6 +1017,7 @@ def r1_zero_reward_fn(response, ground_truth, fast=True):
                     "answer_reward": 0.0,
                     "reward": 0.0
                 }
+        is_correct = False
         if isinstance(ground_truth, float) or isinstance(ground_truth, int):
             ground_truth = str(ground_truth)
         if isinstance(ground_truth, str):
